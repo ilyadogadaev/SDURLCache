@@ -75,6 +75,9 @@
  */
 - (void)removeAllCachedResponsesInMemory;
 
+
++ (NSString *)cacheKeyForData:(NSData *)data;
+
 @end
 
 #pragma mark - For subclasses only

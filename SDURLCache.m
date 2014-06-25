@@ -339,6 +339,17 @@ inline void dispatch_async_afreentrant(dispatch_queue_t queue, dispatch_block_t 
             cacheFormatVersion, r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[13], r[14], r[15]];
 }
 
++ (NSString *)cacheKeyForData:(NSData *)data {
+  
+  const char *str = (const char *)data.bytes;
+  unsigned char r[CC_MD5_DIGEST_LENGTH];
+  CC_MD5(str, data.length, r);
+  static NSString *cacheFormatVersion = @"2";
+  return [NSString stringWithFormat:@"%@_%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+          cacheFormatVersion, r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[13], r[14], r[15]];
+}
+
+
 #pragma mark SDURLCache (private)
 
 static dispatch_queue_t get_disk_cache_queue() {
@@ -675,10 +686,39 @@ static dispatch_queue_t get_disk_io_queue() {
         // When cache is ignored for read, it's a good idea not to store the result as well as this option
         // have big chance to be used every times in the future for the same request.
         // NOTE: This is a change regarding default URLCache behavior
-          NSLog(@"cache: response ignored!");
-        return;
+          
+          if ([[request.HTTPMethod uppercaseString] isEqualToString: @"POST"] && (request.HTTPBody != nil)) {
+            //cache login?
+          }
+          else {
+            NSLog(@"cache: response ignored!");
+            return;
+          }
+      }
+  
+    if ([[request.HTTPMethod uppercaseString] isEqualToString: @"POST"]) {
+      if (request.HTTPBody != nil) {
+        
+
+        auto HTTPResponse = (NSHTTPURLResponse*)(cachedResponse.response);
+        
+        NSString * key = [SDURLCache cacheKeyForData: request.HTTPBody];
+        NSMutableDictionary * headers = [NSMutableDictionary dictionaryWithDictionary:HTTPResponse.allHeaderFields];
+        headers[@"X-SDURLCache-Body-MD5"] = key;
+        
+        NSHTTPURLResponse * newResp = [[NSHTTPURLResponse alloc] initWithURL:HTTPResponse.URL
+                                                                  statusCode:HTTPResponse.statusCode
+                                                                 HTTPVersion:@"HTTP/1.1"
+                                                                headerFields:headers];
+        NSCachedURLResponse * newCachedResp = [[NSCachedURLResponse alloc] initWithResponse:newResp
+                                                                                       data:cachedResponse.data
+                                                                                   userInfo:nil
+                                                                              storagePolicy:cachedResponse.storagePolicy];
+        cachedResponse = newCachedResp;
+        
+      }
     }
-    
+  
     [super storeCachedResponse:cachedResponse forRequest:request];
     
     NSURLCacheStoragePolicy storagePolicy = cachedResponse.storagePolicy;
