@@ -666,7 +666,8 @@ static dispatch_queue_t get_disk_io_queue() {
 
 - (void)storeCachedResponse:(NSCachedURLResponse *)cachedResponse forRequest:(NSURLRequest *)request {
     request = [[self class] canonicalRequestForRequest:request];
-    
+    NSLog(@"cache: storing response for: %@", request);
+  
     if (!_allowCachingResponsesToNonCachedRequests &&
         (request.cachePolicy == NSURLRequestReloadIgnoringLocalCacheData
          || request.cachePolicy == NSURLRequestReloadIgnoringLocalAndRemoteCacheData
@@ -674,6 +675,7 @@ static dispatch_queue_t get_disk_io_queue() {
         // When cache is ignored for read, it's a good idea not to store the result as well as this option
         // have big chance to be used every times in the future for the same request.
         // NOTE: This is a change regarding default URLCache behavior
+          NSLog(@"cache: response ignored!");
         return;
     }
     
@@ -687,6 +689,9 @@ static dispatch_queue_t get_disk_io_queue() {
         if (self.shouldRespectCacheControlHeaders)
         {
             NSDictionary *headers = [(NSHTTPURLResponse *)cachedResponse.response allHeaderFields];
+            headers = [NSMutableDictionary dictionaryWithDictionary:headers];
+            //###idogadaev
+            [headers setValue:@"max-age=3600" forKey:@"Cache-Control"];
             // RFC 2616 section 13.3.4 says clients MUST use Etag in any cache-conditional request if provided by server
             if (![headers objectForKey:@"Etag"]) {
                 NSDate *expirationDate = [[self class] expirationDateFromHeaders:headers
@@ -706,12 +711,20 @@ static dispatch_queue_t get_disk_io_queue() {
 
 - (NSCachedURLResponse *)cachedResponseForRequest:(NSURLRequest *)request {
     request = [[self class] canonicalRequestForRequest:request];
-    
+    NSLog(@"cache: asking for: %@", request.URL);
+
+  //###idogadaev
+  if ([AGHTTPManager sharedManager].suggestedCachePolicy != NSURLRequestReturnCacheDataElseLoad) {
+    if ([[request.HTTPMethod uppercaseString] isEqualToString: @"POST"]) {
+      return nil;
+    }
+  }
+
     NSCachedURLResponse *memoryResponse = [super cachedResponseForRequest:request];
     if (memoryResponse) {
         return memoryResponse;
     }
-    
+  
     NSString *cacheKey = [[self class] cacheKeyForURL:request.URL];
     
     // NOTE: We don't handle expiration here as even staled cache data is necessary for NSURLConnection to handle cache revalidation.
