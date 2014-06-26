@@ -36,6 +36,9 @@ static NSString *const kAFURLCacheInfoFileName = @"cacheInfo.plist";
 static NSString *const kAFURLCacheInfoAccessesKey = @"accesses";
 static NSString *const kAFURLCacheInfoSizesKey = @"sizes";
 static NSString *const kAFURLCacheInfoURLsKey = @"URLs";
+
+static NSString *const kAFURLCacheMaxAgeForced = @"max-age=300";
+
 static float const kAFURLCacheLastModFraction = 0.1f; // 10% since Last-Modified suggested by RFC2616 section 13.2.4
 static float const kAFURLCacheDefault = 3600.0f; // Default cache expiration delay if none defined (1 hour)
 
@@ -696,28 +699,26 @@ static dispatch_queue_t get_disk_io_queue() {
           }
       }
   
+    auto HTTPResponse = (NSHTTPURLResponse*)(cachedResponse.response);
+    NSMutableDictionary * headers = [NSMutableDictionary dictionaryWithDictionary:HTTPResponse.allHeaderFields];
     if ([[request.HTTPMethod uppercaseString] isEqualToString: @"POST"]) {
       if (request.HTTPBody != nil) {
-        
-
-        auto HTTPResponse = (NSHTTPURLResponse*)(cachedResponse.response);
-        
         NSString * key = [SDURLCache cacheKeyForData: request.HTTPBody];
-        NSMutableDictionary * headers = [NSMutableDictionary dictionaryWithDictionary:HTTPResponse.allHeaderFields];
         headers[@"X-SDURLCache-Body-MD5"] = key;
-        
-        NSHTTPURLResponse * newResp = [[NSHTTPURLResponse alloc] initWithURL:HTTPResponse.URL
-                                                                  statusCode:HTTPResponse.statusCode
-                                                                 HTTPVersion:@"HTTP/1.1"
-                                                                headerFields:headers];
-        NSCachedURLResponse * newCachedResp = [[NSCachedURLResponse alloc] initWithResponse:newResp
-                                                                                       data:cachedResponse.data
-                                                                                   userInfo:nil
-                                                                              storagePolicy:cachedResponse.storagePolicy];
-        cachedResponse = newCachedResp;
-        
       }
     }
+    else {
+      [headers setValue:kAFURLCacheMaxAgeForced forKey:@"Cache-Control"];
+    }
+    NSHTTPURLResponse * newResp = [[NSHTTPURLResponse alloc] initWithURL:HTTPResponse.URL
+                                                              statusCode:HTTPResponse.statusCode
+                                                             HTTPVersion:@"HTTP/1.1"
+                                                            headerFields:headers];
+    NSCachedURLResponse * newCachedResp = [[NSCachedURLResponse alloc] initWithResponse:newResp
+                                                                                   data:cachedResponse.data
+                                                                               userInfo:nil
+                                                                          storagePolicy:cachedResponse.storagePolicy];
+    cachedResponse = newCachedResp;
   
     [super storeCachedResponse:cachedResponse forRequest:request];
     
@@ -731,7 +732,7 @@ static dispatch_queue_t get_disk_io_queue() {
             NSDictionary *headers = [(NSHTTPURLResponse *)cachedResponse.response allHeaderFields];
             headers = [NSMutableDictionary dictionaryWithDictionary:headers];
             //###idogadaev
-            [headers setValue:@"max-age=3600" forKey:@"Cache-Control"];
+            [headers setValue:kAFURLCacheMaxAgeForced forKey:@"Cache-Control"];
             // RFC 2616 section 13.3.4 says clients MUST use Etag in any cache-conditional request if provided by server
             if (![headers objectForKey:@"Etag"]) {
                 NSDate *expirationDate = [[self class] expirationDateFromHeaders:headers
