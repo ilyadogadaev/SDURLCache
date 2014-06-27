@@ -36,6 +36,7 @@ static NSString *const kAFURLCacheInfoFileName = @"cacheInfo.plist";
 static NSString *const kAFURLCacheInfoAccessesKey = @"accesses";
 static NSString *const kAFURLCacheInfoSizesKey = @"sizes";
 static NSString *const kAFURLCacheInfoURLsKey = @"URLs";
+static NSString *const kAFURLCacheUseSetting = @"AGUseCacheSetting";
 
 static NSString *const kAFURLCacheMaxAgeForced = @"max-age=300";
 
@@ -679,6 +680,10 @@ static dispatch_queue_t get_disk_io_queue() {
 }
 
 - (void)storeCachedResponse:(NSCachedURLResponse *)cachedResponse forRequest:(NSURLRequest *)request {
+  
+  if ([[NSUserDefaults standardUserDefaults] boolForKey:kAFURLCacheUseSetting] == NO) {
+    return;
+  }
     request = [[self class] canonicalRequestForRequest:request];
     NSLog(@"cache: storing response for: %@", request);
   
@@ -751,6 +756,11 @@ static dispatch_queue_t get_disk_io_queue() {
 }
 
 - (NSCachedURLResponse *)cachedResponseForRequest:(NSURLRequest *)request {
+  
+  if ([[NSUserDefaults standardUserDefaults] boolForKey:kAFURLCacheUseSetting] == NO) {
+    return nil;
+  }
+  
     request = [[self class] canonicalRequestForRequest:request];
     NSLog(@"cache: asking for: %@", request.URL);
 
