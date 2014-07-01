@@ -767,12 +767,14 @@ static dispatch_queue_t get_disk_io_queue() {
   //###idogadaev
   if ([AGHTTPManager sharedManager].suggestedCachePolicy != NSURLRequestReturnCacheDataElseLoad) {
     if ([[request.HTTPMethod uppercaseString] isEqualToString: @"POST"]) {
+      NSLog(@"CACHE MISS for %@", request);
       return nil;
     }
   }
 
     NSCachedURLResponse *memoryResponse = [super cachedResponseForRequest:request];
     if (memoryResponse) {
+        NSLog(@"CACHE HIT (MEMORY) for %@", request);
         return memoryResponse;
     }
   
@@ -807,6 +809,7 @@ static dispatch_queue_t get_disk_io_queue() {
     
     // OPTI: Store the response to memory cache for potential future requests
     if (response) {
+        NSLog(@"CACHE HIT (DISK) for %@", request);
         [super storeCachedResponse:response forRequest:request];
     }
     
