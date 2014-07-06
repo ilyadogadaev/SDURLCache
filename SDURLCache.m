@@ -39,6 +39,9 @@ static NSString *const kAFURLCacheInfoURLsKey = @"URLs";
 static NSString *const kAFURLCacheUseSetting = @"AGUseCacheSetting";
 
 static NSString *const kAFURLCacheMaxAgeForced = @"max-age=300";
+static NSString *const kAFURLCacheMaxAgeForChatsForced = @"max-age=300";
+static int kSDMaxAgeValue = 300;
+static int kSDMaxAgeValueForChats = 300;
 
 static float const kAFURLCacheLastModFraction = 0.1f; // 10% since Last-Modified suggested by RFC2616 section 13.2.4
 static float const kAFURLCacheDefault = 3600.0f; // Default cache expiration delay if none defined (1 hour)
@@ -679,6 +682,33 @@ static dispatch_queue_t get_disk_io_queue() {
     return self;
 }
 
+-(int)cacheControlValue: (NSDictionary *)headers { //0 if not present
+  NSString * cc = headers[@"Cache-Control"];
+  int retVal = 0;
+  if (cc != nil) {
+    NSArray * a = [cc componentsSeparatedByString:@","];
+    for (NSString * s in a) {
+      NSString * trimmeds =[s stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+      if ([trimmeds hasPrefix:@"max-age="]) {
+        NSString * nstr = [trimmeds substringFromIndex:8];
+        int val = [nstr integerValue];
+        retVal = val;
+        break;
+      }
+    }
+  }
+  return retVal;
+}
+
+- (BOOL)isChatFeed: (NSURL *)url {
+  if ([url.path isEqualToString:@"/api/v1/direct_message/direct_message"]) {
+    if ([url.query rangeOfString: @"thread"].length > 0) {
+      return YES;
+    }
+  }
+  return NO;
+}
+
 - (void)storeCachedResponse:(NSCachedURLResponse *)cachedResponse forRequest:(NSURLRequest *)request {
   
   if ([[NSUserDefaults standardUserDefaults] boolForKey:kAFURLCacheUseSetting] == NO) {
@@ -713,7 +743,26 @@ static dispatch_queue_t get_disk_io_queue() {
       }
     }
     else {
-      [headers setValue:kAFURLCacheMaxAgeForced forKey:@"Cache-Control"];
+      BOOL ccPresent = NO;
+      int val = [self cacheControlValue:headers];
+      BOOL isChatFeed = [self isChatFeed: request.URL];
+      int maxVal = kSDMaxAgeValue;
+      if (isChatFeed) {
+        maxVal = kSDMaxAgeValueForChats;
+      }
+      if (val > maxVal) {
+        ccPresent = YES;
+      }
+
+      if (ccPresent == NO) {
+        if (isChatFeed) {
+          [headers setValue:kAFURLCacheMaxAgeForChatsForced forKey:@"Cache-Control"];
+        }
+        else {
+          [headers setValue:kAFURLCacheMaxAgeForced forKey:@"Cache-Control"];
+        }
+      }
+      
     }
     NSHTTPURLResponse * newResp = [[NSHTTPURLResponse alloc] initWithURL:HTTPResponse.URL
                                                               statusCode:HTTPResponse.statusCode
@@ -737,7 +786,27 @@ static dispatch_queue_t get_disk_io_queue() {
             NSDictionary *headers = [(NSHTTPURLResponse *)cachedResponse.response allHeaderFields];
             headers = [NSMutableDictionary dictionaryWithDictionary:headers];
             //###idogadaev
-            [headers setValue:kAFURLCacheMaxAgeForced forKey:@"Cache-Control"];
+          
+            BOOL ccPresent = NO;
+            int val = [self cacheControlValue:headers];
+            BOOL isChatFeed = [self isChatFeed: request.URL];
+            int maxVal = kSDMaxAgeValue;
+            if (isChatFeed) {
+              maxVal = kSDMaxAgeValueForChats;
+            }
+            if (val > maxVal) {
+              ccPresent = YES;
+            }
+            
+            if (ccPresent == NO) {
+              if (isChatFeed) {
+                [headers setValue:kAFURLCacheMaxAgeForChatsForced forKey:@"Cache-Control"];
+              }
+              else {
+                [headers setValue:kAFURLCacheMaxAgeForced forKey:@"Cache-Control"];
+              }
+            }
+          
             // RFC 2616 section 13.3.4 says clients MUST use Etag in any cache-conditional request if provided by server
             if (![headers objectForKey:@"Etag"]) {
                 NSDate *expirationDate = [[self class] expirationDateFromHeaders:headers
