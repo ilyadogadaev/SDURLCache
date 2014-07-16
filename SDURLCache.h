@@ -93,4 +93,8 @@
  */
 + (NSURLRequest *)canonicalRequestForRequest:(NSURLRequest *)request;
 
+
+//idogadaev: to remove cached data e.g. after follow/unfollow
+- (void)removeCachedResponseForCachedKeysWithString:(NSString *)str;
+
 @end

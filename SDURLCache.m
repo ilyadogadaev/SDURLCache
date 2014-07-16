@@ -555,6 +555,23 @@ static dispatch_queue_t get_disk_io_queue() {
     });
 }
 
+- (void)removeCachedResponseForCachedKeysWithString:(NSString *)str {
+#if SDURLCACHE_DEBUG
+  NSMutableArray * keysToRemove = [NSMutableArray array];
+  NSMutableDictionary *urls = [self.diskCacheInfo objectForKey:kAFURLCacheInfoURLsKey];
+  [urls enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+    NSString * cacheKey = (NSString *)key;
+    NSString * url = (NSString *)obj;
+    if ([url rangeOfString:str].length > 0) {
+      [keysToRemove addObject:cacheKey];
+    }
+  }];
+  if (keysToRemove.count > 0) {
+    [self removeCachedResponseForCachedKeys:keysToRemove];
+  }
+#endif
+}
+
 - (void)removeCachedResponseForCachedKeys:(NSArray *)cacheKeys {
     dispatch_async_afreentrant(get_disk_cache_queue(), ^{
         @autoreleasepool {
