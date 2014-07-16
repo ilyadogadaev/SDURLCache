@@ -12,6 +12,9 @@
 
 /* Define SDURLCACHE_DEBUG=1 if you want to get some more info about the cached requests. */
 
+#define SDURLCACHE_DEBUG 1
+
+
 @interface SDURLCache : NSURLCache
 {
     @private
