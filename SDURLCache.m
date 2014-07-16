@@ -515,6 +515,9 @@ static dispatch_queue_t get_disk_io_queue() {
 #endif
                                       nil];
                 }
+                if (_diskCacheInfo[kAFURLCacheInfoURLsKey] == nil) {
+                  _diskCacheInfo[kAFURLCacheInfoURLsKey] = [NSMutableDictionary dictionary];
+                }
                 _diskCacheInfoDirty = NO;
                 NSArray *sizes = [[_diskCacheInfo objectForKey:kAFURLCacheInfoSizesKey] allValues];
                 _diskCacheUsage = [[sizes valueForKeyPath:@"@sum.self"] unsignedIntegerValue];
