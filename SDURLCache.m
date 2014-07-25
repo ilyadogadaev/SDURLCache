@@ -861,14 +861,22 @@ static dispatch_queue_t get_disk_io_queue() {
     }
   }
 
-    NSCachedURLResponse *memoryResponse = [super cachedResponseForRequest:request];
-    if (memoryResponse) {
-        NSLog(@"CACHE HIT (MEMORY) for %@", request);
-        return memoryResponse;
+    NSMutableDictionary *urls = [self.diskCacheInfo objectForKey:kAFURLCacheInfoURLsKey];
+    NSString *cacheKey = [[self class] cacheKeyForURL:request.URL];
+    if (urls[cacheKey] != nil) {
+
+      NSCachedURLResponse *memoryResponse = [super cachedResponseForRequest:request];
+      if (memoryResponse) {
+          NSLog(@"CACHE HIT (MEMORY) for %@", request);
+          return memoryResponse;
+      }
+    }
+    else {
+      //we are not allowed to try memory cache - as we manually removed url from our cache
+      NSLog(@"CACHE MISS (URL IS NOT IN URLS LIST) for %@", request);
+      return nil;
     }
   
-    NSString *cacheKey = [[self class] cacheKeyForURL:request.URL];
-    
     // NOTE: We don't handle expiration here as even staled cache data is necessary for NSURLConnection to handle cache revalidation.
     //       Staled cache data is also needed for cachePolicies which force the use of the cache.
     __block NSCachedURLResponse *response = nil;
